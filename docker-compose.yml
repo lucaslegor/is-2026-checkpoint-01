@@ -1,0 +1,39 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - ${BACKEND_PORT}:5000
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=database
+    networks:
+      - teamboard-net
+    depends_on:
+      database:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+    restart: unless-stopped
+  frontend:
+    build: ./frontend
+    ports:
+      - ${FRONTEND_PORT}:8080
+    depends_on:
+      - backend
+    networks:
+      - teamboard-net
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    restart: unless-stopped
+    
+networks:
+  teamboard-net:
+    driver: bridge
