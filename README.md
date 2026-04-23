@@ -134,6 +134,37 @@ docker compose restart backend
 
 ---
 
+## Estructura del repositorio
+
+```
+is-2026-checkpoint-01/
+│
+├── docker-compose.yml       ← orquesta todos los servicios
+├── .env                     ← variables de entorno (no va a git)
+├── .env.example             ← plantilla sin valores reales
+├── .gitignore               ← excluye .env y archivos locales
+├── README.md                ← este archivo
+│
+├── frontend/                ← Feature 02
+│   ├── Dockerfile
+│   ├── .dockerignore
+│   └── html/
+│       ├── index.html
+│       └── app.js
+│
+├── backend/                 ← Feature 03
+│   ├── Dockerfile
+│   ├── .dockerignore
+│   ├── requirements.txt
+│   └── app.py
+│
+├── database/                ← Feature 04
+│   └── init.sql
+│
+└── portainer/               ← Feature 05 (configurado en compose)
+```
+---
+
 ## Feature 01 — Coordinación e Infraestructura Base
 
 **Responsable:** Legorburu Lucas
@@ -168,32 +199,17 @@ Esta feature es el punto de partida del proyecto. Incluye:
 
 ---
 
-## Estructura del repositorio
+## Feature 02 — Frontend (HTML + JS)
+**Responsable**: Bellizzi Tomás
+Esta feature implementa la interfaz web de TeamBoard. Incluye:
 
-```
-is-2026-checkpoint-01/
-│
-├── docker-compose.yml       ← orquesta todos los servicios
-├── .env                     ← variables de entorno (no va a git)
-├── .env.example             ← plantilla sin valores reales
-├── .gitignore               ← excluye .env y archivos locales
-├── README.md                ← este archivo
-│
-├── frontend/                ← Feature 02
-│   ├── Dockerfile
-│   ├── .dockerignore
-│   └── html/
-│       ├── index.html
-│       └── app.js
-│
-├── backend/                 ← Feature 03
-│   ├── Dockerfile
-│   ├── .dockerignore
-│   ├── requirements.txt
-│   └── app.py
-│
-├── database/                ← Feature 04
-│   └── init.sql
-│
-└── portainer/               ← Feature 05 (configurado en compose)
-```
+Dockerfile — construye la imagen del frontend a partir de python:3.12-slim y levanta un servidor HTTP con python3 -m http.server 8080
+.dockerignore — excluye archivos innecesarios del contexto de build
+html/index.html — estructura visual de la página: encabezado con el nombre del grupo y tabla de integrantes
+html/app.js — lógica del cliente: realiza un fetch() al backend en /api/team y construye la tabla dinámicamente con los datos recibidos. También muestra un indicador de estado según si el backend responde o no.
+
+Decisiones tomadas en el frontend
+Python http.server como servidor estático: no se requiere Nginx ni ningún servidor web complejo. El intérprete de Python incluye un servidor HTTP listo para usar con un solo comando, suficiente para servir archivos estáticos.
+Tabla construida dinámicamente con JavaScript: los datos de los integrantes no están escritos en el HTML sino que se obtienen en tiempo de ejecución desde el backend. Esto garantiza que el frontend siempre refleja el estado real de la base de datos.
+Indicador de estado del backend: si el backend no responde, la página muestra un mensaje de error visible en lugar de una tabla vacía, facilitando la detección de problemas en el entorno.
+Imagen base python:3.12-slim con versión fija: se evita latest para garantizar reproducibilidad del build, y se usa la variante slim para reducir el tamaño de la imagen.
