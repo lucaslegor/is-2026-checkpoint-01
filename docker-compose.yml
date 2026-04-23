@@ -74,8 +74,19 @@ services:
           cpus: '0.25'
           memory: 256M
     restart: unless-stopped
+  portainer:
+    image: portainer/portainer-ce:2.27.0
+    ports:
+      - ${PORTAINER_PORT}:9000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - teamboard-net
+    restart: unless-stopped
 volumes:
-   database_data: 
+   database_data:
+   portainer_data:
 
 networks:
   teamboard-net:
