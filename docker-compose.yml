@@ -55,9 +55,27 @@ services:
           cpus: "0.25"
           memory: 128M
     restart: unless-stopped
-
+  pgadmin:
+    image: dpage/pgadmin4:8.5
+    container_name: pgadmin_service
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - "5050:80"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - teamboard-net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+    restart: unless-stopped
 volumes:
-  database_data: 
+   database_data: 
 
 networks:
   teamboard-net:
