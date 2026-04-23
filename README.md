@@ -213,3 +213,40 @@ Python http.server como servidor estático: no se requiere Nginx ni ningún serv
 Tabla construida dinámicamente con JavaScript: los datos de los integrantes no están escritos en el HTML sino que se obtienen en tiempo de ejecución desde el backend. Esto garantiza que el frontend siempre refleja el estado real de la base de datos.
 Indicador de estado del backend: si el backend no responde, la página muestra un mensaje de error visible en lugar de una tabla vacía, facilitando la detección de problemas en el entorno.
 Imagen base python:3.12-slim con versión fija: se evita latest para garantizar reproducibilidad del build, y se usa la variante slim para reducir el tamaño de la imagen.
+
+## Feature 05 — Panel de Monitoreo (Portainer)
+  **Responsable:** Rodriguez Joaquín
+
+  Esta feature agrega un panel web para monitorear y gestionar los contenedores Docker del proyecto en tiempo real. Incluye:
+
+  - **`docker-compose.yml`** — agrega el servicio `portainer` con su imagen oficial y el volumen persistente `portainer_data`
+  - **`portainer/`** — carpeta del servicio con `.gitignore` para excluir datos locales generados por Portainer
+  - **`.env.example`** — agrega la variable `PORTAINER_PORT` para que cada integrante configure su puerto local
+
+  ### Decisiones tomadas en el servicio Portainer
+
+  **Imagen `portainer/portainer-ce:2.27.0` con versión fija:** se evita `latest` para garantizar que todos los integrantes del equipo levanten
+  exactamente la misma versión del panel, evitando diferencias de comportamiento entre entornos.
+
+  **Bind mount de `/var/run/docker.sock`:** Portainer necesita acceso al socket de Docker del host para poder listar y gestionar los contenedores. Es el 
+  mecanismo estándar para que un contenedor interactúe con el daemon de Docker.
+
+  **Volumen nombrado `portainer_data`:** la configuración de Portainer (usuarios, contraseñas, endpoints) se persiste en un volumen gestionado por       
+  Docker. Esto evita tener que reconfigurar el panel cada vez que el contenedor es recreado.
+
+  **Sin `depends_on`:** Portainer no depende de ningún otro servicio para arrancar. Puede levantarse en cualquier orden ya que solo interactúa con el    
+  daemon de Docker, no con los demás contenedores de la red.
+
+  **Integrado a la red `teamboard-net`:** aunque Portainer no necesita comunicarse con los otros servicios por red, unirse a la misma red interna le     
+  permite visualizarlos correctamente en el panel.
+  ## Acceso a Portainer
+
+  1. Abrí el navegador en `http://localhost:9000`
+  2. La primera vez te va a pedir crear un usuario administrador:
+     - **Username:** el que vos elijas (ej: `admin`)
+     - **Password:** mínimo 12 caracteres
+  3. Hacé clic en **Create user**
+  4. En la siguiente pantalla seleccioná **Get Started**
+  5. Hacé clic en **local** para ver los contenedores del host
+<img width="1601" height="326" alt="image" src="https://github.com/user-attachments/assets/d0fd8ce8-4cbf-4126-88fa-dc319374ba1b" />
+
