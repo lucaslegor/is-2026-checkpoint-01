@@ -43,7 +43,7 @@ Navegador
 
 | Servicio  | Imagen / Build              | Puerto | Descripción                                      |
 |-----------|-----------------------------|--------|--------------------------------------------------|
-| database  | postgres:16-alpine          | —      | Base de datos PostgreSQL. Sin puerto público.    |
+| database  | postgres:16-alpine          | —      | Base de datos PostgreSQL.                        |
 | backend   | ./backend (Dockerfile)      | 5000   | API REST Flask. Expone `/api/team`, `/api/health`, `/api/info`. |
 | frontend  | ./frontend (Dockerfile)     | 8080   | Servidor estático Python. Sirve `index.html` y `app.js`. |
 | portainer | portainer/portainer-ce:latest | 9000 | Panel web para monitorear los contenedores Docker. |
@@ -77,11 +77,13 @@ Editar el archivo `.env` con los valores reales:
 
 ```bash
 POSTGRES_USER=
-POSTGRES_PASSWORD=una_contraseña_segura
+POSTGRES_PASSWORD=
 POSTGRES_DB=
 BACKEND_PORT=
 FRONTEND_PORT=
 PORTAINER_PORT=
+PGADMIN_EMAIL=
+PGADMIN_PASSWORD=
 ```
 
 ### 3. Levantar los servicios
@@ -150,7 +152,8 @@ is-2026-checkpoint-01/
 │   ├── .dockerignore
 │   └── html/
 │       ├── index.html
-│       └── app.js
+│       ├── app.js
+│       └── syles.css
 │
 ├── backend/                 ← Feature 03
 │   ├── Dockerfile
@@ -200,19 +203,72 @@ Esta feature es el punto de partida del proyecto. Incluye:
 ---
 
 ## Feature 02 — Frontend (HTML + JS)
-**Responsable**: Bellizzi Tomás
+
+**Responsable:** Bellizzi Tomás
+
 Esta feature implementa la interfaz web de TeamBoard. Incluye:
 
-Dockerfile — construye la imagen del frontend a partir de python:3.12-slim y levanta un servidor HTTP con python3 -m http.server 8080
-.dockerignore — excluye archivos innecesarios del contexto de build
-html/index.html — estructura visual de la página: encabezado con el nombre del grupo y tabla de integrantes
-html/app.js — lógica del cliente: realiza un fetch() al backend en /api/team y construye la tabla dinámicamente con los datos recibidos. También muestra un indicador de estado según si el backend responde o no.
+- **`frontend/Dockerfile`** — construye la imagen a partir de `python:3.12-slim` y levanta un servidor HTTP con `python3 -m http.server` en el puerto 8080 sirviendo el directorio `html/`.
+- **`frontend/.dockerignore`** — excluye archivos innecesarios del contexto de build.
+- **`frontend/html/index.html`** — estructura visual de la página: encabezado con el nombre del grupo y tabla de integrantes.
+- **`frontend/html/app.js`** — lógica del cliente: `fetch()` al backend en `/api/team`, construcción dinámica de filas y badge de estado; indicador de si el backend responde.
+- **`frontend/html/syles.css`** — estilos de la interfaz.
 
-Decisiones tomadas en el frontend
-Python http.server como servidor estático: no se requiere Nginx ni ningún servidor web complejo. El intérprete de Python incluye un servidor HTTP listo para usar con un solo comando, suficiente para servir archivos estáticos.
-Tabla construida dinámicamente con JavaScript: los datos de los integrantes no están escritos en el HTML sino que se obtienen en tiempo de ejecución desde el backend. Esto garantiza que el frontend siempre refleja el estado real de la base de datos.
-Indicador de estado del backend: si el backend no responde, la página muestra un mensaje de error visible en lugar de una tabla vacía, facilitando la detección de problemas en el entorno.
-Imagen base python:3.12-slim con versión fija: se evita latest para garantizar reproducibilidad del build, y se usa la variante slim para reducir el tamaño de la imagen.
+### Decisiones tomadas en el frontend
+
+**Python `http.server` como servidor estático:** no se requiere Nginx ni ningún servidor web complejo. El intérprete de Python incluye un servidor HTTP suficiente para servir archivos estáticos con un solo comando.
+
+**Tabla construida dinámicamente con JavaScript:** los datos de los integrantes no están escritos en el HTML sino que se obtienen en tiempo de ejecución desde el backend. El frontend refleja el estado real de la base de datos.
+
+**Indicador de estado del backend:** si el backend no responde, la página muestra un mensaje de error visible en lugar de una tabla vacía, facilitando la detección de problemas en el entorno.
+
+**Imagen base `python:3.12-slim` con versión fija:** se evita `latest` para garantizar reproducibilidad del build, y se usa la variante slim para reducir el tamaño de la imagen.
+
+**`BACKEND_URL` en `app.js`:** por defecto apunta a `http://localhost:5000/api/team`. Si se cambia `BACKEND_PORT` en `.env`, hay que actualizar esa constante para que el navegador use el puerto correcto.
+
+---
+
+## Feature 03 — Backend (Flask API)
+
+**Responsable:** Giordani Luca
+
+Esta feature expone la API REST que consume el frontend y consulta PostgreSQL. Incluye:
+
+- **`backend/app.py`** — aplicación Flask con CORS, conexión a PostgreSQL mediante `psycopg2`, endpoints `GET /api/health`, `GET /api/team` y `GET /api/info`, manejadores 404/500 y logging.
+- **`backend/requirements.txt`** — Flask, Flask-CORS, psycopg2-binary, python-dotenv y gunicorn.
+- **`backend/Dockerfile`** — imagen `python:3.12-slim`, instalación de dependencias y `curl` para el healthcheck, usuario no root, HEALTHCHECK contra `/api/health`, arranque con Gunicorn (`--workers 2`) en `0.0.0.0:5000`.
+- **`backend/.dockerignore`** — reduce el contexto de build.
+
+### Decisiones tomadas en el backend
+
+**Configuración por variables de entorno:** usuario, contraseña, base y host (`POSTGRES_HOST=database` en Compose) evitan credenciales en el código y alinean el contenedor con el servicio `database`.
+
+**Gunicorn en contenedor:** se usa un servidor WSGI adecuado para producción en lugar de `app.run` en modo debug.
+
+**CORS habilitado:** el frontend se sirve en otro origen (puerto distinto); `Flask-CORS` permite las peticiones `fetch` desde el navegador.
+
+**Healthcheck HTTP:** el contenedor expone `/api/health` para que Docker verifique que el servicio sigue respondiendo.
+
+---
+
+## Feature 04 — Base de datos (PostgreSQL)
+
+**Responsable:** Devida Facundo
+
+Esta feature define el modelo de datos y los datos semilla del equipo. Incluye:
+
+- **`database/init.sql`** — creación de la tabla `members` (`id`, `nombre`, `apellido`, `legajo`, `feature`, `servicio`, `estado` con `CHECK` en `ACTIVO` / `INACTIVO`) e inserción de los seis integrantes.
+- **Servicio `database` en `docker-compose.yml`** — imagen `postgres:16-alpine`, variables desde `.env`, volumen `database_data`, healthcheck con `pg_isready`, montaje de `init.sql` en `/docker-entrypoint-initdb.d/` para que PostgreSQL lo ejecute automáticamente la primera vez que el volumen está vacío.
+
+### Decisiones tomadas en la base de datos
+
+**Sin puerto publicado al host:** PostgreSQL solo es accesible desde la red Docker (por ejemplo el backend y pgAdmin), lo que reduce la exposición innecesaria en desarrollo local.
+
+**PostgreSQL 16 Alpine:** imagen oficial ligera con versión explícita para alinear entornos entre integrantes.
+
+**Restricciones en el esquema:** `legajo` único y valores permitidos en `estado` mantienen consistencia de los datos del equipo.
+
+---
 
 ## Feature 05 — Panel de Monitoreo (Portainer)
   **Responsable:** Rodriguez Joaquín
@@ -250,3 +306,23 @@ Imagen base python:3.12-slim con versión fija: se evita latest para garantizar 
   5. Hacé clic en **local** para ver los contenedores del host
 <img width="1601" height="326" alt="image" src="https://github.com/user-attachments/assets/d0fd8ce8-4cbf-4126-88fa-dc319374ba1b" />
 
+---
+
+## Feature 06 — Administración BD (pgAdmin)
+
+**Responsable:** Piquet Leonel
+
+Esta feature agrega una interfaz web para administrar PostgreSQL sin depender de un cliente instalado en el host. Incluye:
+
+- **`docker-compose.yml`** — servicio `pgadmin` con imagen `dpage/pgadmin4:8.5`, variables `PGADMIN_DEFAULT_EMAIL` y `PGADMIN_DEFAULT_PASSWORD` tomadas desde `.env`, mapeo de puerto `5050:80`, `depends_on` con `condition: service_healthy` sobre `database`, red `teamboard-net` y límites de recursos.
+- **`.env.example`** — variables `PGADMIN_EMAIL` y `PGADMIN_PASSWORD` para el primer inicio de sesión en la interfaz.
+
+### Decisiones tomadas en el servicio pgAdmin
+
+**Imagen `dpage/pgadmin4:8.5` con versión fija:** mismo criterio que en el resto del stack para evitar diferencias entre entornos al usar `latest`.
+
+**Esperar a la base sana:** `depends_on` con `condition: service_healthy` evita que pgAdmin arranque antes de que PostgreSQL acepte conexiones.
+
+**Acceso a la base desde la UI:** al registrar el servidor en pgAdmin, el host es el nombre del servicio Docker `database`, puerto `5432`, con usuario, contraseña y base definidos en `.env`.
+
+**Puerto fijo en el compose:** el mapeo `5050:80` expone la interfaz en `http://localhost:5050` de forma consistente para todo el equipo.
